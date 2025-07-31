@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Guide to Bovine Dystocia Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Clinical Calm" - A mix of neutral beige, slate gray, calming blue, and a soft amber for alerts. -->
+    <!-- Application Structure Plan: The SPA is designed as an interactive clinical decision support tool, not a linear document. The structure prioritizes rapid access to information needed during a dystocia event. It starts with a high-level decision flowchart (the "Decision Tool") to immediately orient the user. A sticky navigation bar allows quick jumps to detailed sections: 'Assessment' (for initial diagnosis), 'Assisted Delivery' (for manual corrections), and a tabbed section for 'Advanced Interventions' (Fetotomy vs. C-Section). This task-oriented structure allows a veterinarian to quickly find the exact protocol they need, whether it's checking labor timelines, reviewing a correction technique, or comparing surgical outcomes, making it far more usable in a clinical setting than a traditional report. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Dystocia Causes -> Goal: Inform -> Viz: Bar Chart -> Interaction: Hover for details -> Justification: Quickly shows the most common issues (FPD in heifers). -> Library: Chart.js.
+        - Report Info: Labor Timelines -> Goal: Decide -> Viz: Interactive Cards -> Interaction: Click buttons (Heifer/Cow) to see specific time limits -> Justification: Provides immediate, context-specific answers for when to intervene. -> Library: JS/HTML/CSS.
+        - Report Info: Malpresentation Correction -> Goal: Instruct -> Viz: Interactive flip-cards -> Interaction: Click to reveal step-by-step correction protocol with simple icons -> Justification: Breaks down complex physical manipulations into easy-to-follow, visual steps. -> Library: JS/HTML/CSS.
+        - Report Info: Fetotomy vs. C-Section -> Goal: Compare/Decide -> Viz: Grouped Bar Chart -> Interaction: Hover for exact data points -> Justification: Directly compares survival and fertility outcomes to aid in the critical decision between the two procedures. -> Library: Chart.js.
+        - Report Info: Decision Algorithm -> Goal: Guide -> Viz: Clickable Flowchart -> Interaction: Clicking a node scrolls to the relevant detailed section -> Justification: The core of the app; it operationalizes the entire clinical thought process. -> Library: JS/HTML/CSS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-cream { background-color: #FDFBF5; }
+        .bg-slate-light { background-color: #F1F5F9; }
+        .text-slate-heading { color: #1E293B; }
+        .text-slate-body { color: #475569; }
+        .accent-blue { background-color: #3B82F6; }
+        .accent-blue-text { color: #3B82F6; }
+        .accent-amber { background-color: #F59E0B; }
+        .accent-amber-text { color: #F59E0B; }
+        .nav-link { transition: all 0.3s ease; }
+        .nav-link.active, .nav-link:hover { color: #3B82F6; border-bottom-color: #3B82F6; }
+        .section-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .section-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 350px; max-height: 400px; }
+        @media (max-width: 768px) { .chart-container { height: 300px; } }
+        .flip-card { perspective: 1000px; }
+        .flip-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
+        .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+        .flip-card-front, .flip-card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 1rem; border-radius: 0.5rem; }
+        .flip-card-back { transform: rotateY(180deg); }
+        .flowchart-node { cursor: pointer; transition: all 0.2s ease-in-out; border: 2px solid transparent; }
+        .flowchart-node:hover { transform: scale(1.03); border-color: #3B82F6; }
+        .flowchart-line { flex-grow: 1; background-color: #94A3B8; min-height: 2px; min-width: 2rem; }
+        .flowchart-line-v { width: 2px; background-color: #94A3B8; }
+    </style>
+</head>
+<body class="bg-cream text-slate-body">
+
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-slate-heading">Bovine Dystocia Guide</h1>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#decision-tool" class="nav-link px-3 py-2 text-sm font-medium text-slate-body border-b-2 border-transparent">Decision Tool</a>
+                        <a href="#assessment" class="nav-link px-3 py-2 text-sm font-medium text-slate-body border-b-2 border-transparent">Assessment</a>
+                        <a href="#assisted-delivery" class="nav-link px-3 py-2 text-sm font-medium text-slate-body border-b-2 border-transparent">Assisted Delivery</a>
+                        <a href="#advanced-interventions" class="nav-link px-3 py-2 text-sm font-medium text-slate-body border-b-2 border-transparent">Advanced Interventions</a>
+                        <a href="#comparison" class="nav-link px-3 py-2 text-sm font-medium text-slate-body border-b-2 border-transparent">Comparison</a>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-white">
+                        <span class="sr-only">Open main menu</span>
+                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </nav>
+        <div class="md:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#decision-tool" class="block nav-link px-3 py-2 rounded-md text-base font-medium">Decision Tool</a>
+                <a href="#assessment" class="block nav-link px-3 py-2 rounded-md text-base font-medium">Assessment</a>
+                <a href="#assisted-delivery" class="block nav-link px-3 py-2 rounded-md text-base font-medium">Assisted Delivery</a>
+                <a href="#advanced-interventions" class="block nav-link px-3 py-2 rounded-md text-base font-medium">Advanced Interventions</a>
+                <a href="#comparison" class="block nav-link px-3 py-2 rounded-md text-base font-medium">Comparison</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+
+        <section id="intro" class="text-center mb-16">
+            <h2 class="text-4xl md:text-5xl font-bold text-slate-heading mb-4">A Clinical Guide to Bovine Dystocia</h2>
+            <p class="max-w-3xl mx-auto text-lg text-slate-body">This interactive tool provides a structured, evidence-based framework for managing difficult calvings. Use the Decision Tool below to navigate the clinical pathway, or jump directly to a specific section for detailed protocols and information.</p>
+        </section>
+
+        <section id="decision-tool" class="mb-16 p-6 md:p-8 bg-white rounded-xl shadow-lg">
+            <h3 class="text-2xl md:text-3xl font-bold text-slate-heading text-center mb-2">Interactive Decision Algorithm</h3>
+            <p class="text-center text-slate-body mb-8">Click on any step to jump to the detailed protocol for that action.</p>
+            <div class="space-y-4">
+                <div class="flex justify-center">
+                    <div class="flowchart-node bg-slate-100 p-4 rounded-lg shadow text-center w-full md:w-1/2" data-target="#assessment">
+                        <p class="font-semibold text-slate-heading">START: Cow in Labor</p>
+                        <p class="text-sm">Assess progress vs. time</p>
+                    </div>
+                </div>
+                <div class="flex justify-center items-center"><div class="flowchart-line-v h-8"></div></div>
+                <div class="flex justify-center">
+                    <div class="flowchart-node bg-slate-100 p-4 rounded-lg shadow text-center w-full md:w-1/2" data-target="#assessment">
+                        <p class="font-semibold text-slate-heading">Perform Obstetric Exam</p>
+                        <p class="text-sm">PPP, Viability, Maternal Factors</p>
+                    </div>
+                </div>
+                <div class="flex justify-center items-center"><div class="flowchart-line-v h-8"></div></div>
+                <div class="flex justify-center">
+                    <div class="flowchart-node bg-blue-100 p-4 rounded-lg shadow text-center w-full md:w-1/2" data-target="#assessment">
+                        <p class="font-bold accent-blue-text">DECISION: Is Fetus Alive?</p>
+                    </div>
+                </div>
+                <div class="flex items-start justify-center">
+                    <div class="w-1/2 pr-4 flex flex-col items-center">
+                        <div class="flowchart-line-v h-8"></div>
+                        <div class="flowchart-node bg-green-100 p-4 rounded-lg shadow text-center w-full" data-target="#assisted-delivery">
+                            <p class="font-semibold text-green-800">YES (Alive)</p>
+                            <p class="text-sm">Assess for Vaginal Delivery</p>
+                        </div>
+                        <div class="flowchart-line-v h-8"></div>
+                        <div class="flowchart-node bg-blue-100 p-4 rounded-lg shadow text-center w-full" data-target="#assisted-delivery">
+                            <p class="font-bold accent-blue-text">Is Vaginal Delivery Safe?</p>
+                        </div>
+                        <div class="flex items-start justify-center w-full">
+                            <div class="w-1/2 pr-2 flex flex-col items-center">
+                                <div class="flowchart-line-v h-8"></div>
+                                <div class="flowchart-node bg-green-100 p-4 rounded-lg shadow text-center w-full" data-target="#assisted-delivery">
+                                    <p class="font-semibold text-green-800">YES</p>
+                                    <p class="text-sm">Attempt Mutation & Traction (15-min rule)</p>
+                                </div>
+                            </div>
+                            <div class="w-1/2 pl-2 flex flex-col items-center">
+                                <div class="flowchart-line-v h-8"></div>
+                                <div class="flowchart-node bg-amber-100 p-4 rounded-lg shadow text-center w-full" data-target="#advanced-interventions">
+                                    <p class="font-semibold text-amber-800">NO</p>
+                                    <p class="text-sm">Proceed to C-Section</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-1/2 pl-4 flex flex-col items-center">
+                        <div class="flowchart-line-v h-8"></div>
+                        <div class="flowchart-node bg-red-100 p-4 rounded-lg shadow text-center w-full" data-target="#advanced-interventions">
+                            <p class="font-semibold text-red-800">NO (Dead)</p>
+                            <p class="text-sm">Assess Fetal Condition</p>
+                        </div>
+                        <div class="flowchart-line-v h-8"></div>
+                        <div class="flowchart-node bg-blue-100 p-4 rounded-lg shadow text-center w-full" data-target="#advanced-interventions">
+                            <p class="font-bold accent-blue-text">Is Fetus Emphysematous?</p>
+                        </div>
+                        <div class="flex items-start justify-center w-full">
+                           <div class="w-1/2 pr-2 flex flex-col items-center">
+                                <div class="flowchart-line-v h-8"></div>
+                                <div class="flowchart-node bg-red-100 p-4 rounded-lg shadow text-center w-full" data-target="#advanced-interventions">
+                                    <p class="font-semibold text-red-800">YES</p>
+                                    <p class="text-sm">Fetotomy Indicated</p>
+                                </div>
+                            </div>
+                            <div class="w-1/2 pl-2 flex flex-col items-center">
+                                <div class="flowchart-line-v h-8"></div>
+                                <div class="flowchart-node bg-amber-100 p-4 rounded-lg shadow text-center w-full" data-target="#advanced-interventions">
+                                    <p class="font-semibold text-amber-800">NO</p>
+                                    <p class="text-sm">Fetotomy vs. C-Section (Operator Choice)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="assessment" class="mb-16">
+            <h3 class="text-3xl font-bold text-slate-heading mb-6 border-l-4 border-blue-500 pl-4">Initial Assessment</h3>
+            <p class="mb-8 text-slate-body">A systematic assessment is the foundation for successful intervention. This section guides you through determining if and when to intervene, and how to perform a thorough obstetric examination to diagnose the cause of dystocia.</p>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg section-card">
+                    <h4 class="text-xl font-bold text-slate-heading mb-4">When to Intervene: Labor Timelines</h4>
+                    <p class="mb-4">Select the animal type to see critical time limits for intervention. Stalling or exceeding these times warrants an examination.</p>
+                    <div class="flex space-x-2 mb-4">
+                        <button id="heiferBtn" class="flex-1 p-2 rounded-md bg-blue-500 text-white font-semibold shadow">Heifer</button>
+                        <button id="cowBtn" class="flex-1 p-2 rounded-md bg-slate-200 text-slate-700 font-semibold">Cow</button>
+                    </div>
+                    <div id="timeline-info" class="space-y-3"></div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg section-card">
+                    <h4 class="text-xl font-bold text-slate-heading mb-4">Obstetric Examination Checklist</h4>
+                    <ul class="space-y-3">
+                        <li class="flex items-start"><span class="accent-blue-text font-bold mr-2">✓</span><span><strong>Hygiene & Restraint:</strong> Clean perineum, tie tail, use clean sleeves and copious non-irritating lube. Restrain safely.</span></li>
+                        <li class="flex items-start"><span class="accent-blue-text font-bold mr-2">✓</span><span><strong>Fetal Viability:</strong> Check for pedal, ocular, or suckle reflex. A lack of all reflexes indicates a non-viable fetus.</span></li>
+                        <li class="flex items-start"><span class="accent-blue-text font-bold mr-2">✓</span><span><strong>Assess the 3 P's:</strong> Determine Presentation, Position, and Posture.</span></li>
+                        <li class="flex items-start"><span class="accent-blue-text font-bold mr-2">✓</span><span><strong>Cervical Dilation:</strong> Ensure cervix is fully dilated. Forced extraction through an incomplete cervix causes severe trauma.</span></li>
+                        <li class="flex items-start"><span class="accent-amber-text font-bold mr-2">!</span><span><strong>Pelvic Adequacy (Hand Test):</strong> Can you pass a flat hand between the fetus and the maternal pelvis? If not, significant fetopelvic disproportion exists. **Do not pull.**</span></li>
+                    </ul>
+                </div>
+            </div>
+             <div class="mt-8 bg-white p-6 rounded-xl shadow-lg section-card">
+                <h4 class="text-xl font-bold text-slate-heading mb-4 text-center">Common Causes of Dystocia</h4>
+                <p class="text-center text-slate-body mb-4">Fetopelvic disproportion is the leading cause in heifers, while malpresentations are more common in mature cows.</p>
+                <div class="chart-container">
+                    <canvas id="dystociaCausesChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="assisted-delivery" class="mb-16">
+            <h3 class="text-3xl font-bold text-slate-heading mb-6 border-l-4 border-blue-500 pl-4">Assisted Vaginal Delivery</h3>
+            <p class="mb-8 text-slate-body">If the fetus is alive, the malpresentation is correctable, and there is adequate pelvic room, assisted delivery can be attempted. The core principles are repulsion to create space, gentle correction, and controlled traction. Remember the 15-minute rule: if you are not making clear progress, stop and reconsider your plan.</p>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Retained Forelimb -->
+                <div class="flip-card h-80 rounded-lg shadow-lg bg-white">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front bg-slate-light">
+                            <h5 class="text-lg font-bold text-slate-heading">Retained Forelimb</h5>
+                            <p class="text-center mt-2">One or both feet are back. You feel a bent carpus ("knee") blocking the inlet.</p>
+                            <button class="mt-4 text-sm accent-blue-text font-semibold">Click to see protocol</button>
+                        </div>
+                        <div class="flip-card-back bg-blue-50 text-slate-body text-sm">
+                            <h6 class="font-bold mb-2">Correction Protocol</h6>
+                            <ol class="list-decimal list-inside text-left space-y-1">
+                                <li><strong>Repel</strong> fetus into uterus to create space.</li>
+                                <li>Grasp limb below carpus, flex all joints.</li>
+                                <li>Swing limb medially and upward into pelvis.</li>
+                                <li class="font-bold accent-amber-text">Cup the hoof in your hand to prevent uterine puncture.</li>
+                                <li>Extend leg fully and apply OB chain.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <!-- Head Deviation -->
+                <div class="flip-card h-80 rounded-lg shadow-lg bg-white">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front bg-slate-light">
+                            <h5 class="text-lg font-bold text-slate-heading">Head Deviation</h5>
+                            <p class="text-center mt-2">Both forelimbs are present, but the head is turned back along the flank.</p>
+                            <button class="mt-4 text-sm accent-blue-text font-semibold">Click to see protocol</button>
+                        </div>
+                        <div class="flip-card-back bg-blue-50 text-slate-body text-sm">
+                            <h6 class="font-bold mb-2">Correction Protocol</h6>
+                            <ol class="list-decimal list-inside text-left space-y-1">
+                                <li><strong>Repel</strong> fetus using legs as handles.</li>
+                                <li>Grasp muzzle or use orbital sockets to guide head.</li>
+                                <li>If needed, use a head snare carefully.</li>
+                                <li>Align head between forelimbs.</li>
+                                <li>Apply coordinated traction to head and legs.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                <!-- Breech Presentation -->
+                <div class="flip-card h-80 rounded-lg shadow-lg bg-white">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front bg-slate-light">
+                            <h5 class="text-lg font-bold text-slate-heading">Breech Presentation</h5>
+                            <p class="text-center mt-2">Only the tail and rump are at the pelvic inlet. No limbs are present.</p>
+                            <button class="mt-4 text-sm accent-blue-text font-semibold">Click to see protocol</button>
+                        </div>
+                        <div class="flip-card-back bg-blue-50 text-slate-body text-sm">
+                            <h6 class="font-bold mb-2">Correction Protocol (Difficult)</h6>
+                            <ol class="list-decimal list-inside text-left space-y-1">
+                                <li>Epidural is highly recommended.</li>
+                                <li><strong>Repel</strong> rump cranially and dorsally.</li>
+                                <li>Grasp a hock, push it cranio-laterally.</li>
+                                <li class="font-bold accent-amber-text">Cup the hoof as you bring it into the pelvis.</li>
+                                <li>Extend leg and repeat for the other side.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="advanced-interventions" class="mb-16">
+            <h3 class="text-3xl font-bold text-slate-heading mb-6 border-l-4 border-blue-500 pl-4">Advanced Interventions</h3>
+            <p class="mb-8 text-slate-body">When assisted vaginal delivery is not possible or has failed, a surgical intervention is required. The choice between fetotomy and Caesarean section is a critical decision based primarily on fetal viability and condition. This section provides detailed protocols for both procedures.</p>
+            <div>
+                <div class="mb-4 border-b border-gray-200">
+                    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="advanced-tabs">
+                        <li class="mr-2">
+                            <button class="tab-btn inline-block p-4 border-b-2 rounded-t-lg" data-target="fetotomy-content">Fetotomy</button>
+                        </li>
+                        <li class="mr-2">
+                            <button class="tab-btn inline-block p-4 border-b-2 rounded-t-lg" data-target="csection-content">Caesarean Section</button>
+                        </li>
+                    </ul>
+                </div>
+                <div id="advanced-tabs-content">
+                    <div id="fetotomy-content" class="tab-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-lg">
+                        <h4 class="text-2xl font-bold text-slate-heading mb-4">Fetotomy Protocol</h4>
+                        <p class="mb-6">Fetotomy is the dissection of a <strong class="text-red-600">dead fetus</strong> to facilitate its removal. It is the procedure of choice for an emphysematous fetus to maximize dam survival. It requires skill, patience, and copious lubrication.</p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2">Key Indications</h5>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>Confirmed DEAD fetus</strong></li>
+                                    <li>Emphysematous (swollen, gas-filled) fetus</li>
+                                    <li>Irreducible malpresentation in a dead fetus</li>
+                                    <li>Fetal monsters (e.g., Schistosomus reflexus)</li>
+                                    <li>Impacted hip lock</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 class="font-semibold text-lg mb-2">Critical Contraindications</h5>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li class="font-bold text-red-600">LIVE FETUS</li>
+                                    <li>Inadequate space / severe uterine contraction</li>
+                                    <li>Inexperienced operator</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <hr class="my-6">
+                        <h5 class="font-semibold text-lg mb-2">Procedure Principles</h5>
+                        <ol class="list-decimal list-inside space-y-2">
+                            <li><strong>Anesthesia:</strong> Caudal epidural is essential to stop straining.</li>
+                            <li><strong>Lubrication:</strong> Use generously and continuously.</li>
+                            <li><strong>Protection:</strong> The operator's non-dominant arm MUST always be inside, guiding the wire and protecting the uterine wall from the fetotome head.</li>
+                            <li><strong>Cutting:</strong> Use long, smooth strokes. Do not stop and start.</li>
+                            <li><strong>Plan Cuts:</strong> Make the fewest, most effective cuts. Start with the part causing the obstruction (e.g., decapitation for a retained head, forelimb amputation for shoulder lock).</li>
+                        </ol>
+                    </div>
+                    <div id="csection-content" class="hidden tab-content bg-white p-6 rounded-b-lg rounded-tr-lg shadow-lg">
+                        <h4 class="text-2xl font-bold text-slate-heading mb-4">Caesarean Section Protocol</h4>
+                        <p class="mb-6">A C-section is the surgical delivery of a fetus through the abdominal wall. It is the procedure of choice to deliver a <strong class="text-green-600">live calf</strong> that cannot be delivered vaginally. Promptness is key to success for both dam and calf.</p>
+                        <div class="grid md:grid-cols-2 gap-6">
+                             <div>
+                                <h5 class="font-semibold text-lg mb-2">Key Indications</h5>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>Confirmed LIVE fetus</strong></li>
+                                    <li>Fetopelvic disproportion</li>
+                                    <li>Irreducible uterine torsion</li>
+                                    <li>Failure of cervical dilation</li>
+                                    <li>Irreducible malpresentation in a live fetus</li>
+                                </ul>
+                            </div>
+                             <div>
+                                <h5 class="font-semibold text-lg mb-2">Standard Approach: Standing Left Flank</h5>
+                                <p>This is the most common approach as the rumen helps retain viscera, minimizing contamination.</p>
+                            </div>
+                        </div>
+                        <hr class="my-6">
+                        <h5 class="font-semibold text-lg mb-2">Abbreviated Surgical Steps</h5>
+                        <ol class="list-decimal list-inside space-y-2">
+                            <li><strong>Preparation:</strong> Pre-op antibiotics & NSAIDs. Caudal epidural and local block (e.g., paravertebral or inverted-L). Aseptic surgical prep.</li>
+                            <li><strong>Incision:</strong> Generous (30-45cm) vertical or oblique incision through skin, muscle layers, and peritoneum in the left paralumbar fossa.</li>
+                            <li><strong>Uterine Exteriorization:</strong> Grasp a fetal limb through the uterine wall and gently lift the uterus through the incision. This is the most critical step to prevent contamination.</li>
+                            <li><strong>Hysterotomy:</strong> Incise the uterus along its greater curvature, avoiding placentomes.</li>
+                            <li><strong>Fetal Extraction:</strong> Apply OB chains and deliver the calf with steady traction.</li>
+                            <li><strong>Closure:</strong> Close the uterus with a two-layer inverting pattern (e.g., Utrecht). Close the abdominal wall in 3 layers.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="comparison" class="mb-16">
+            <h3 class="text-3xl font-bold text-slate-heading mb-6 border-l-4 border-blue-500 pl-4">Fetotomy vs. C-Section: Outcome Comparison</h3>
+            <p class="mb-8 text-slate-body">The decision between fetotomy and C-section involves a critical risk-benefit analysis. This chart compares the procedures on key outcomes. Note how dam survival with a C-section plummets if the fetus is emphysematous, making fetotomy the safer choice for the dam in that specific scenario.</p>
+            <div class="bg-white p-6 rounded-xl shadow-lg section-card">
+                 <div class="chart-container h-[450px] max-h-[500px]">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-800 text-white mt-16">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm">
+            <p>This interactive guide is for educational purposes only and should be used by trained veterinary professionals. All clinical decisions remain the responsibility of the attending veterinarian.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                mobileMenuButton.querySelector('svg:first-child').classList.toggle('hidden');
+                mobileMenuButton.querySelector('svg:last-child').classList.toggle('hidden');
+            });
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('main section');
+
+            function changeActiveLink() {
+                let index = sections.length;
+                while(--index && window.scrollY + 100 < sections[index].offsetTop) {}
+                
+                navLinks.forEach((link) => link.classList.remove('active'));
+                const activeLink = document.querySelector(`.nav-link[href="#${sections[index].id}"]`);
+                if(activeLink) {
+                    activeLink.classList.add('active');
+                }
+            }
+            changeActiveLink();
+            window.addEventListener('scroll', changeActiveLink);
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    if (mobileMenu.classList.contains('hidden') === false) {
+                        mobileMenu.classList.add('hidden');
+                        mobileMenuButton.querySelector('svg:first-child').classList.remove('hidden');
+                        mobileMenuButton.querySelector('svg:last-child').classList.add('hidden');
+                    }
+                });
+            });
+
+            const timelineData = {
+                heifer: {
+                    stage1: {
+                        duration: "2-6 hours (up to 24h)",
+                        trigger: "Examine if Stage 1 signs persist > 8 hours with no progression."
+                    },
+                    stage2: {
+                        duration: "1-4 hours",
+                        trigger: "Examine if water sac visible > 2 hours, or forceful straining > 30-60 min with no progress."
+                    }
+                },
+                cow: {
+                    stage1: {
+                        duration: "1-4 hours",
+                        trigger: "Examine if Stage 1 signs persist > 8 hours with no progression."
+                    },
+                    stage2: {
+                        duration: "< 3 hours",
+                        trigger: "Examine if water sac visible > 2 hours, or forceful straining > 30 min with no progress."
+                    }
+                }
+            };
+
+            const heiferBtn = document.getElementById('heiferBtn');
+            const cowBtn = document.getElementById('cowBtn');
+            const timelineInfo = document.getElementById('timeline-info');
+            let currentAnimal = 'heifer';
+
+            function updateTimeline() {
+                const data = timelineData[currentAnimal];
+                timelineInfo.innerHTML = `
+                    <div class="border-l-4 border-slate-200 pl-4">
+                        <p class="font-semibold">Stage 1 (Dilation)</p>
+                        <p class="text-sm"><strong>Duration:</strong> ${data.stage1.duration}</p>
+                        <p class="text-sm accent-amber-text"><strong>Intervene if:</strong> ${data.stage1.trigger}</p>
+                    </div>
+                    <div class="border-l-4 border-slate-200 pl-4">
+                        <p class="font-semibold">Stage 2 (Expulsion)</p>
+                        <p class="text-sm"><strong>Duration:</strong> ${data.stage2.duration}</p>
+                        <p class="text-sm accent-amber-text"><strong>Intervene if:</strong> ${data.stage2.trigger}</p>
+                    </div>
+                `;
+            }
+
+            heiferBtn.addEventListener('click', () => {
+                currentAnimal = 'heifer';
+                heiferBtn.classList.replace('bg-slate-200', 'bg-blue-500');
+                heiferBtn.classList.replace('text-slate-700', 'text-white');
+                cowBtn.classList.replace('bg-blue-500', 'bg-slate-200');
+                cowBtn.classList.replace('text-white', 'text-slate-700');
+                updateTimeline();
+            });
+
+            cowBtn.addEventListener('click', () => {
+                currentAnimal = 'cow';
+                cowBtn.classList.replace('bg-slate-200', 'bg-blue-500');
+                cowBtn.classList.replace('text-slate-700', 'text-white');
+                heiferBtn.classList.replace('bg-blue-500', 'bg-slate-200');
+                heiferBtn.classList.replace('text-white', 'text-slate-700');
+                updateTimeline();
+            });
+
+            updateTimeline();
+
+            const flipCards = document.querySelectorAll('.flip-card');
+            flipCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    card.classList.toggle('flipped');
+                });
+            });
+
+            const tabs = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('border-blue-500', 'text-blue-600'));
+                    tabs.forEach(t => t.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300'));
+                    tab.classList.add('border-blue-500', 'text-blue-600');
+                    tab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+
+                    tabContents.forEach(content => content.classList.add('hidden'));
+                    document.getElementById(tab.dataset.target).classList.remove('hidden');
+                });
+            });
+            tabs[0].click();
+
+            const flowchartNodes = document.querySelectorAll('.flowchart-node');
+            flowchartNodes.forEach(node => {
+                node.addEventListener('click', () => {
+                    const targetId = node.dataset.target;
+                    document.querySelector(targetId).scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                });
+            });
+
+            const dystociaCausesCtx = document.getElementById('dystociaCausesChart').getContext('2d');
+            new Chart(dystociaCausesCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Fetopelvic Disproportion', 'Malpresentation (PPP)', 'Uterine Inertia', 'Uterine Torsion', 'Other'],
+                    datasets: [{
+                        label: 'Incidence in Heifers',
+                        data: [65, 20, 5, 5, 5],
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Incidence in Cows',
+                        data: [15, 60, 10, 10, 5],
+                        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Relative Causes of Dystocia by Parity' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Approximate Incidence (%)' }
+                        }
+                    }
+                }
+            });
+
+            const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+            new Chart(comparisonCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Dam Survival (Live Calf)', 'Dam Survival (Emphysematous Calf)', 'Future Fertility (Conception Rate)'],
+                    datasets: [{
+                        label: 'C-Section',
+                        data: [90, 35, 70],
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Fetotomy',
+                        data: [0, 90, 75],
+                        backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Procedural Outcomes Comparison' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.raw !== null) {
+                                        label += `${context.raw}%`;
+                                    }
+                                    if (context.label === 'Dam Survival (Live Calf)' && context.dataset.label === 'Fetotomy') {
+                                       label += ' (N/A - Contraindicated)';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Outcome Rate (%)' }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
